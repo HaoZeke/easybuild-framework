@@ -4724,7 +4724,11 @@ class EasyBlock:
                     else:
                         print_warning(mod_files_found_msg)
 
-            if self.toolchain.use_rpath:
+            use_rpath = self.toolchain.use_rpath or (
+                build_option('sanity_check_only') and build_option('rpath')
+                and self.toolchain.options.get('rpath', True)
+            )
+            if use_rpath:
                 rpath_fails = self.sanity_check_rpath()
                 if rpath_fails:
                     self.log.warning("RPATH sanity check failed!")
