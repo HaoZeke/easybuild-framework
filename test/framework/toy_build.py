@@ -3194,6 +3194,63 @@ class ToyBuildTest(EnhancedTestCase):
             self.assertRaisesRegex(EasyBuildError, error_pattern, self._test_toy_build, ec_file=toy_ec,
                                    extra_args=args, name='toy-app', raise_error=True, verbose=False)
 
+    def test_toy_sanity_only_rpath(self):
+        """Check an installed executable with RPATH without preparing its toolchain."""
+        toy_ec = os.path.join(TEST_ECS_DIR, 't', 'toy-app', 'toy-app-0.0.eb')
+        rpath_args = ['--rpath', '--strict-rpath-sanity-check']
+        with self.mocked_stdout_stderr():
+            self._test_toy_build(ec_file=toy_ec, name='toy-app', extra_args=rpath_args, raise_error=True)
+
+        write_file(self.logfile, '')
+        with self.mocked_stdout_stderr():
+            self._test_toy_build(ec_file=toy_ec, name='toy-app',
+                                 extra_args=rpath_args + ['--sanity-check-only'], raise_error=True)
+        logtxt = read_file(self.logfile)
+        self.assertIn("Checking RPATH linkage for binaries/libraries...", logtxt)
+        self.assertIn("Unsetting $LD_LIBRARY_PATH since strict RPATH sanity check is enabled...", logtxt)
+
+    def test_toy_sanity_only_rpath_missing_library(self):
+        """Reject an installed executable whose dependency needs LD_LIBRARY_PATH."""
+        toy_ec = os.path.join(TEST_ECS_DIR, 't', 'toy-app', 'toy-app-0.0.eb')
+        with self.mocked_stdout_stderr():
+            self._test_toy_build(ec_file=toy_ec, name='toy-app',
+                                 extra_args=['--rpath', '--rpath-filter=.*libtoy.*'], raise_error=True)
+
+        libtoy_libdir = os.path.join(self.test_installpath, 'software', 'libtoy', '0.0', 'lib')
+        toyapp_bin = os.path.join(self.test_installpath, 'software', 'toy-app', '0.0', 'bin', 'toy-app')
+        with self.mocked_stdout_stderr():
+            res = run_shell_cmd(f"readelf -d {toyapp_bin}")
+        self.assertNotRegex(res.output, re.compile(r"\(RPATH\).*" + re.escape(libtoy_libdir), re.M))
+
+        with self.mocked_stdout_stderr():
+            self._test_toy_build(ec_file=toy_ec, name='toy-app',
+                                 extra_args=['--sanity-check-only', '--disable-rpath', '--strict-rpath-sanity-check'],
+                                 raise_error=True)
+
+        error_pattern = r"Sanity check failed\: Library libtoy\.so not found"
+        with self.mocked_stdout_stderr():
+            self.assertRaisesRegex(EasyBuildError, error_pattern, self._test_toy_build, ec_file=toy_ec,
+                                   name='toy-app', raise_error=True, verbose=False,
+                                   extra_args=['--sanity-check-only', '--rpath', '--strict-rpath-sanity-check'])
+
+    def test_toy_sanity_only_rpath_toolchain_opt_out(self):
+        """Respect a toolchain RPATH opt-out during an installed-only sanity check."""
+        toy_ec = os.path.join(self.test_prefix, 'toy-app.eb')
+        toy_ec_txt = read_file(os.path.join(TEST_ECS_DIR, 't', 'toy-app', 'toy-app-0.0.eb'))
+        toy_ec_txt += "\ntoolchainopts = {'rpath': False}\n"
+        write_file(toy_ec, toy_ec_txt)
+        rpath_args = ['--rpath', '--strict-rpath-sanity-check']
+        with self.mocked_stdout_stderr():
+            self._test_toy_build(ec_file=toy_ec, name='toy-app', extra_args=rpath_args, raise_error=True)
+
+        write_file(self.logfile, '')
+        with self.mocked_stdout_stderr():
+            self._test_toy_build(ec_file=toy_ec, name='toy-app',
+                                 extra_args=rpath_args + ['--sanity-check-only'], raise_error=True)
+        logtxt = read_file(self.logfile)
+        self.assertIn("Skipping RPATH sanity check", logtxt)
+        self.assertNotIn("Checking RPATH linkage for binaries/libraries...", logtxt)
+
     def test_toy_cuda_sanity_check(self):
         """Test the CUDA sanity check"""
         update_build_option('trace', True)
