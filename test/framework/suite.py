@@ -75,6 +75,7 @@ import test.framework.robot as robot
 import test.framework.run as run
 import test.framework.style as st
 import test.framework.systemtools as s
+import test.framework.cuda_relocatable_ptx as s_ptx
 import test.framework.toolchain as tc
 import test.framework.toolchainvariables as tcv
 import test.framework.toy_build as t
@@ -113,7 +114,7 @@ except EasyBuildError as err:
 
 # call suite() for each module and then run them all
 # note: make sure the options unit tests run first, to avoid running some of them with a readily initialized config
-tests = [gen, d, bl, o, r, ef, ev, ebco, ep, epts, e, mg, m, mt, f, run, a, robot, b, v, g, tcv, tc, t, c, s, lic, f_c,
+tests = [gen, d, bl, o, r, ef, ev, ebco, ep, epts, e, mg, m, mt, f, run, a, robot, b, v, g, tcv, tc, t, c, s, s_ptx, lic, f_c,
          tw, p, i, pkg, env, et, st, h, ct, lib, u, es, ou]
 
 
