@@ -602,6 +602,11 @@ def mocked_run_shell_cmd(cmd, **kwargs):
             "mock_noncuda_exe_utf8",
             )
     }}
+    for commands in (known_cmds, known_fail_cmds):
+        for command, result in list(commands.items()):
+            if command.startswith("cuobjdump "):
+                commands[command.replace("cuobjdump ", "cuobjdump --all-fatbin ", 1)] = result
+
     if cmd in known_cmds:
         output = known_cmds[cmd]
         if isinstance(output, tuple) and len(output) == 2:
